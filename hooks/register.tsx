@@ -14,6 +14,7 @@ import {
   COLORS,
   contextLevel,
   duration,
+  fableLimit,
   filledCells,
   makeClock,
   modelName,
@@ -32,9 +33,12 @@ const snap = atom({ plugin: 'status-line', key: 'snap' } as const, null)
 const isExpanded = atom({ plugin: 'status-line', key: 'isExpanded' } as const, false)
 const clockNow = atom({ plugin: 'status-line', key: 'now' } as const, 0)
 const userEmail = atom({ plugin: 'status-line', key: 'user' } as const, null)
+const fableAtom = atom({ plugin: 'status-line', key: 'fable' } as const, null)
 
 const LABELS: Record<string, string> = { five_hour: '5h', seven_day: 'wk' }
-const LONG_LABELS: Record<string, string> = { five_hour: '5h', seven_day: 'weekly' }
+const LONG_LABELS: Record<string, string> = { five_hour: '5h', seven_day: 'weekly', fable: 'Fable' }
+const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage'
+const FABLE_EVERY = 5 * 60_000
 const NARROW_BELOW = 90
 const WARNED_KEY = 'warned'
 const EMAIL = /[^\s@]+@[^\s@]+\.[a-z]{2,}/i
@@ -59,6 +63,7 @@ async function refresh($: EngineInterface, clock: Clock, measured?: { context: S
     model: modelName(model),
     context: ctx.percent === undefined ? undefined : { percent: ctx.percent, tokens: ctx.tokens, window: ctx.window },
     limits,
+    fable: (await read($, fableAtom)) ?? undefined,
   }
   const now = await $.clock.now()
   await update($, snap, () => next)
@@ -67,7 +72,26 @@ async function refresh($: EngineInterface, clock: Clock, measured?: { context: S
   const surfaces = await $.session.surfaces()
   const hasBand = surfaces.some(surface => surface === 'terminal' || surface === 'desktop')
   $.ui.status(hasBand ? undefined : statusText(clock, next, now, await read($, userEmail)))
-  await warnPast90($, clock, limits)
+  await warnPast90($, clock, next.fable ? [...limits, next.fable] : limits)
+}
+
+// The Fable weekly window is not among the engine's rate limits; the usage endpoint has it.
+// The host holds the credential and sets the header itself; the token never reaches this plugin.
+async function refreshFable($: EngineInterface) {
+  try {
+    const auth = await $.session.authorize()
+    if (auth?.kind !== 'bearer') return
+    const res = await $.http.fetch(USAGE_URL, {
+      auth: auth.handle,
+      headers: { 'anthropic-beta': 'oauth-2025-04-20' },
+    })
+    if (!res.ok) return
+    const fable = fableLimit(JSON.parse(res.text)) ?? null
+    await update($, fableAtom, () => fable)
+    await update($, snap, s => (s ? { ...s, fable: fable ?? undefined } : s))
+  } catch {
+    // Keep the last reading; the next poll tries again.
+  }
 }
 
 function statusText(clock: Clock, s: QuotaSnap, now: number, user: string | null): string {
@@ -80,6 +104,7 @@ function statusText(clock: Clock, s: QuotaSnap, now: number, user: string | null
       if (p.runOutAt) text += ` ⇥ ${clock.when(p.runOutAt, now)}`
       text += ` ↻ ${clock.when(l.resetsAt, now)}`
     }
+    if (l.kind === 'seven_day' && s.fable) text += ` (F ${Math.round(s.fable.percent)}%)`
     parts.push(text)
   }
   if (user) parts.push(user)
@@ -140,8 +165,10 @@ export const register: Register = (on, options) => {
       const email = await readAccountEmail($)
       if (email) await update($, userEmail, () => email)
     }
+    await refreshFable($)
     await refresh($, clock)
     $.clock.every(30_000, () => refresh($, clock))
+    $.clock.every(FABLE_EVERY, () => refreshFable($))
     return result
   })
 
@@ -217,7 +244,19 @@ function percentText({ Text }: Kit, key: string, p: number, level: Level) {
   return <Text key={key} color={COLORS[level]} bold={level === 'crit'}>{pct(p)}</Text>
 }
 
-// "verke │ Opus 5.5 │ ctx ▰▰▱▱▱▱▱▱  23% │ 5h ▰▰▱▱▱  31% ↻ 14:20 / wk ▰▰▰▱▱  50% ⇥ Wed 21:48 ↻ Sat 01:00 │ user@example.com"
+// " (F 12%)" after the weekly figure.
+function fableText({ Box, Text }: Kit, key: string, f: QuotaLimit) {
+  const level = usageLevel(f.percent)
+  return (
+    <Box key={key} flexDirection="row">
+      <Text dimColor> (</Text>
+      <Text color={COLORS[level]} bold={level === 'crit'}>F {Math.round(f.percent)}%</Text>
+      <Text dimColor>)</Text>
+    </Box>
+  )
+}
+
+// "verke │ Opus 5.5 │ ctx ▰▱▱▱▱  23% │ 5h ▰▰▱▱▱  31% ↻ 14:20 / wk ▰▰▰▱▱  50% (F 12%) ⇥ Wed 21:48 ↻ Sat 01:00 │ user@example.com"
 // Under NARROW_BELOW columns the bars drop out.
 function drawRow(kit: Kit, clock: Clock, s: QuotaSnap, now: number, columns: number, user: string | null) {
   const { Box, Text } = kit
@@ -234,6 +273,7 @@ function drawRow(kit: Kit, clock: Clock, s: QuotaSnap, now: number, columns: num
         <Text dimColor>{LABELS[l.kind]} </Text>
         {withBars ? bar(kit, 'bar', l.percent, level, 5) : null}
         {percentText(kit, 'pct', l.percent, level)}
+        {l.kind === 'seven_day' && s.fable ? fableText(kit, 'fable', s.fable) : null}
         {p?.runOutAt ? (
           <Text color={COLORS[level]} bold={level === 'crit'}> ⇥ {clock.when(p.runOutAt, now)}</Text>
         ) : null}
@@ -248,7 +288,7 @@ function drawRow(kit: Kit, clock: Clock, s: QuotaSnap, now: number, columns: num
       <Text>{s.model}</Text>
       {ctx ? sep('s2') : null}
       {ctx ? <Text dimColor>ctx </Text> : null}
-      {ctx && withBars ? bar(kit, 'ctxb', ctx.percent, ctxLevel, 8) : null}
+      {ctx && withBars ? bar(kit, 'ctxb', ctx.percent, ctxLevel, 5) : null}
       {ctx ? percentText(kit, 'ctxp', ctx.percent, ctxLevel) : null}
       {s.limits.length > 0 ? sep('s3') : null}
       {limits}
@@ -280,7 +320,7 @@ function drawDetails(kit: Kit, clock: Clock, s: QuotaSnap, now: number, columns:
           ) : null}
         </Box>
       ) : null}
-      {s.limits.flatMap(l => {
+      {(s.fable ? [...s.limits, s.fable] : s.limits).flatMap(l => {
         const level = usageLevel(l.percent)
         const p = l.resetsAt ? pace(l.percent, l.resetsAt, windowOf(l.kind), now) : undefined
         const tickAt = p ? Math.min(cells - 1, Math.floor(p.elapsed * cells)) : undefined

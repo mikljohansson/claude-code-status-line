@@ -22,6 +22,7 @@ const HOUR = 3_600_000
 export const WINDOW_MS: Record<string, number> = {
   five_hour: 5 * HOUR,
   seven_day: 7 * 24 * HOUR,
+  fable: 7 * 24 * HOUR,
 }
 
 export const windowOf = (kind: string) => WINDOW_MS[kind] ?? 5 * HOUR
@@ -98,6 +99,20 @@ export function modelName(raw: string): string {
   const [, family = '', major = '', minor] = m ?? []
   const name = m ? `${family.charAt(0).toUpperCase()}${family.slice(1)} ${major}${minor ? '.' + minor : ''}` : id
   return isLong ? `${name} 1M` : name
+}
+
+// The Fable row of /api/oauth/usage: a `weekly_scoped` entry of `limits` scoped to that model.
+// `percent` is 0-100; `resets_at` an ISO string or epoch seconds.
+export function fableLimit(body: unknown): { kind: 'fable'; percent: number; resetsAt?: number } | undefined {
+  const limits = (body as { limits?: unknown } | null)?.limits
+  if (!Array.isArray(limits)) return undefined
+  const row = limits.find(
+    l => l?.kind === 'weekly_scoped' && String(l?.scope?.model?.display_name ?? '').toLowerCase() === 'fable',
+  )
+  if (!row || typeof row.percent !== 'number') return undefined
+  const r = row.resets_at
+  const resetsAt = typeof r === 'number' ? r * 1000 : typeof r === 'string' ? Date.parse(r) : NaN
+  return { kind: 'fable', percent: row.percent, resetsAt: Number.isFinite(resetsAt) ? resetsAt : undefined }
 }
 
 export const pct = (p: number) => `${Math.round(p)}%`.padStart(4)

@@ -3,7 +3,7 @@
 A Claude Code mod that shows one line under the prompt:
 
 ```
-verke │ Opus 5.5 │ ctx ▰▰▱▱▱▱▱▱  21% │ 5h ▰▰▱▱▱  35% ↻ 14:20 / wk ▰▰▰▱▱  51% ⇥ Wed 19:54 ↻ Sat 01:00 │ user@example.com
+verke │ Opus 5.5 │ ctx ▰▱▱▱▱  21% │ 5h ▰▰▱▱▱  35% ↻ 14:20 / wk ▰▰▰▱▱  51% (F 12%) ⇥ Wed 19:54 ↻ Sat 01:00 │ user@example.com
 ```
 
 | Segment | Meaning |
@@ -12,6 +12,7 @@ verke │ Opus 5.5 │ ctx ▰▰▱▱▱▱▱▱  21% │ 5h ▰▰▱▱▱ 
 | `Opus 5.5` | Active model (`1M` added when the extended context window is on) |
 | `ctx` | How full the context window is |
 | `5h` / `wk` | How much of your 5-hour and weekly limits you have used |
+| `(F 12%)` | How much of your weekly Fable limit you have used (left out when your plan has none) |
 | `↻ 14:20` | When that limit resets, in your local time zone, 24h clock. A weekday is added when the reset is on another day |
 | `⇥ Wed 19:54` | Only shown when you are on pace to use the whole limit before it resets: the time you would run out |
 | `user@example.com` | The account you are signed in with (left out when not signed in, such as with an API key) |
@@ -22,7 +23,7 @@ Run `/quota` to show details above the prompt: the full project path, longer bar
 
 ## How it works
 
-It is a plugin of function hooks (a "mod"), not a `statusLine` script. The figures come from what Claude Code already receives with each reply, so the mod makes no network calls and never reads your credentials.
+It is a plugin of function hooks (a "mod"), not a `statusLine` script. Most figures come from what Claude Code already receives with each reply. The Fable weekly limit isn't among them, so the mod reads it from the usage endpoint every 5 minutes through `$.session.authorize()`. Claude Code adds the credential to that request itself, so the mod never sees your token.
 
 The pace forecast is a straight-line projection: the share of the limit used so far divided by the share of the window that has passed. It stays hidden for the first 10% of a window, where the estimate is too noisy.
 

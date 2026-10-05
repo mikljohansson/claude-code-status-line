@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 
-import { lastSegment, makeClock, modelName, pace, shortDir, usageLevel } from '../hooks/format'
+import { fableLimit, lastSegment, makeClock, modelName, pace, shortDir, usageLevel } from '../hooks/format'
 
 const H = 3_600_000
 const QUOTA = {
@@ -49,6 +49,25 @@ describe('format', () => {
     expect(modelName('Opus 5.5')).toBe('Opus 5.5')
     expect(usageLevel(90)).toBe('crit')
   })
+
+  test('Fable weekly row of the usage endpoint', async () => {
+    const row = (name: string, resets_at: unknown) => ({
+      kind: 'weekly_scoped',
+      group: 'weekly',
+      percent: 37,
+      resets_at,
+      scope: { model: { display_name: name } },
+    })
+    expect(fableLimit({ limits: [row('Fable', '2026-10-10T23:00:00Z')] })).toEqual({
+      kind: 'fable',
+      percent: 37,
+      resetsAt: Date.UTC(2026, 9, 10, 23),
+    })
+    expect(fableLimit({ limits: [row('fable', 1_790_000_000)] })?.resetsAt).toBe(1_790_000_000_000)
+    expect(fableLimit({ limits: [row('Opus', null)] })).toBeUndefined()
+    expect(fableLimit({ five_hour: {} })).toBeUndefined()
+    expect(fableLimit(null)).toBeUndefined()
+  })
 })
 
 describe('band', () => {
@@ -66,6 +85,30 @@ describe('band', () => {
       blocks: [{ name: 'userEmail', text: "The user's email address is user@example.com. Use it only to identify the user." }],
     }))
     on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200_000 }, rateLimits: [] } }))
+    on('session.surfaces', () => ({ value: ['terminal'] }))
+    on('session.authorize', () => ({ value: { handle: 'h1', kind: 'bearer' } }))
+    on('http.fetch', (_, e) => ({
+      value: {
+        status: 200,
+        ok: true,
+        headers: {},
+        text: JSON.stringify({
+          limits: [
+            {
+              kind: 'weekly_scoped',
+              percent: 12,
+              resets_at: new Date(NOW + 80 * H).toISOString(),
+              scope: { model: { display_name: e.init?.auth === 'h1' ? 'Fable' : 'none' } },
+            },
+          ],
+        }),
+      },
+    }))
+    on('session.start', (_, e) => ({ cwd: e.cwd }))
+    on('command.register', () => ({ value: undefined }))
+    on('store.get', () => ({ value: undefined }))
+    on('store.set', () => ({ value: undefined }))
+    await $.session.start({ cwd: 'C:\\Users\\miklj\\projects\\verke', surface: 'terminal', isInteractive: true })
     await $.prompt.context({ blocks: [] })
     await $.session.measure({
       context: { tokens: 128_000, window: 200_000, percent: 64 },
@@ -92,6 +135,7 @@ describe('band', () => {
       })
       expect(await hint.find({ type: 'Text', text: 'verke' })).toBeDefined()
       expect(await hint.find({ type: 'Text', text: /64%/ })).toBeDefined()
+      expect(await hint.find({ type: 'Text', text: 'F 12%' })).toBeDefined()
       expect(await hint.find({ type: 'Text', text: 'user@example.com' })).toBeDefined()
       expect(await hint.find({ type: 'Text', text: 'engine' })).toBeDefined()
       await hint.unmount()

@@ -6,10 +6,12 @@ export type QuotaSnap = {
   model: string
   context?: { percent: number; tokens?: number; window: number }
   limits: QuotaLimit[]
+  /** The Fable weekly limit, read from the usage endpoint; absent when unknown. */
+  fable?: QuotaLimit
 }
 
 declare module 'claude-code' {
   interface PluginState {
-    'status-line': { snap: QuotaSnap | null; isExpanded: boolean; now: number; user: string | null }
+    'status-line': { snap: QuotaSnap | null; isExpanded: boolean; now: number; fable: QuotaLimit | null; user: string | null }
   }
 }
