@@ -1,0 +1,30 @@
+{
+  "name": "quota-line",
+  "version": "0.1.0",
+  "description": "Directory, model, context and 5h/weekly usage with local 24h reset times, under the prompt.",
+  "author": {
+    "name": "Mikael Johansson"
+  },
+  "homepage": "https://github.com/mikljohansson/claude-code-status-line",
+  "repository": "https://github.com/mikljohansson/claude-code-status-line",
+  "license": "MIT",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "timeZone": {
+      "type": "string",
+      "title": "Time zone",
+      "description": "IANA zone for reset times, such as Europe/Berlin. Empty uses the system zone.",
+      "default": ""
+    },
+    "weekdays": {
+      "type": "string",
+      "title": "Weekday names",
+      "description": "Language for weekday names: en (Mon) or de (Mo).",
+      "options": [
+        "en",
+        "de"
+      ],
+      "default": "en"
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "claude-code-status-line",
+  "description": "Status line mod for Claude Code: directory, model, context and 5h/weekly usage with local reset times.",
+  "owner": {
+    "name": "Mikael Johansson"
+  },
+  "plugins": [
+    {
+      "name": "quota-line",
+      "source": "./",
+      "description": "Directory, model, context and 5h/weekly usage with local 24h reset times, under the prompt."
+    }
+  ]
+}
