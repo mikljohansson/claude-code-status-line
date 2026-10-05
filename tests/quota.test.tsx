@@ -81,7 +81,7 @@ describe('band', () => {
     }
     for (const surface of ['terminal', 'desktop'] as const) {
       const hint = await $.ui.mount({
-        plugin: 'quota-line',
+        plugin: 'status-line',
         surface,
         component: 'PromptHint',
         props: { isDraft: false, isWorking: false, hint: '? for shortcuts' },
@@ -91,14 +91,14 @@ describe('band', () => {
       expect(await hint.find({ type: 'Text', text: 'engine' })).toBeDefined()
       await hint.unmount()
 
-      const details = await $.ui.mount({ plugin: 'quota-line', surface, component: 'AbovePrompt', props: band })
+      const details = await $.ui.mount({ plugin: 'status-line', surface, component: 'AbovePrompt', props: band })
       expect(await details.find({ type: 'Text', text: 'engine' })).toBeDefined()
       await details.unmount()
     }
 
     await $.command.run(QUOTA)
     for (const surface of ['terminal', 'desktop'] as const) {
-      const details = await $.ui.mount({ plugin: 'quota-line', surface, component: 'AbovePrompt', props: band })
+      const details = await $.ui.mount({ plugin: 'status-line', surface, component: 'AbovePrompt', props: band })
       expect(await details.find({ type: 'Text', text: /128k\/200k tokens/ })).toBeDefined()
       expect(await details.find({ type: 'Text', text: '~\\projects\\verke' })).toBeDefined()
       await details.unmount()

@@ -31,7 +31,7 @@ In Claude Code:
 
 ```
 /plugin marketplace add mikljohansson/claude-code-status-line
-/plugin install quota-line@claude-code-status-line
+/plugin install status-line@claude-code-status-line
 ```
 
 Or clone the repository and start Claude Code with `claude --plugin-dir <path to the clone>`.

@@ -1,5 +1,5 @@
 {
-  "name": "quota-line",
+  "name": "status-line",
   "version": "0.1.0",
   "description": "Directory, model, context and 5h/weekly usage with local 24h reset times, under the prompt.",
   "author": {

@@ -10,6 +10,6 @@ export type QuotaSnap = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'quota-line': { snap: QuotaSnap | null; isExpanded: boolean; now: number }
+    'status-line': { snap: QuotaSnap | null; isExpanded: boolean; now: number }
   }
 }

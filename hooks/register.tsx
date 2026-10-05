@@ -28,9 +28,9 @@ import {
   type Level,
 } from './format'
 
-const snap = atom({ plugin: 'quota-line', key: 'snap' } as const, null)
-const isExpanded = atom({ plugin: 'quota-line', key: 'isExpanded' } as const, false)
-const clockNow = atom({ plugin: 'quota-line', key: 'now' } as const, 0)
+const snap = atom({ plugin: 'status-line', key: 'snap' } as const, null)
+const isExpanded = atom({ plugin: 'status-line', key: 'isExpanded' } as const, false)
+const clockNow = atom({ plugin: 'status-line', key: 'now' } as const, 0)
 
 const LABELS: Record<string, string> = { five_hour: '5h', seven_day: 'wk' }
 const LONG_LABELS: Record<string, string> = { five_hour: '5h', seven_day: 'weekly' }

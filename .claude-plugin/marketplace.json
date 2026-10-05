@@ -6,7 +6,7 @@
   },
   "plugins": [
     {
-      "name": "quota-line",
+      "name": "status-line",
       "source": "./",
       "description": "Directory, model, context and 5h/weekly usage with local 24h reset times, under the prompt."
     }
