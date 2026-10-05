@@ -15,6 +15,12 @@ export const usageLevel = (p: number): Level =>
 export const contextLevel = (p: number): Level =>
   p >= 80 ? 'crit' : p >= 65 ? 'hot' : p >= 50 ? 'warn' : 'ok'
 
+// How much of the window you would spend locked out, between running out and the reset.
+export const runOutLevel = (runOutAt: number, resetsAt: number, windowMs: number): Level => {
+  const lockedOut = (resetsAt - runOutAt) / windowMs
+  return lockedOut > 0.3 ? 'crit' : lockedOut >= 0.1 ? 'hot' : 'warn'
+}
+
 export const filledCells = (percent: number, cells: number) =>
   Math.max(0, Math.min(cells, Math.round((percent / 100) * cells)))
 

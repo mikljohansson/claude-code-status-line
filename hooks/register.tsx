@@ -21,6 +21,7 @@ import {
   pace,
   pct,
   lastSegment,
+  runOutLevel,
   shortDir,
   tokensK,
   usageLevel,
@@ -244,6 +245,12 @@ function percentText({ Text }: Kit, key: string, p: number, level: Level) {
   return <Text key={key} color={COLORS[level]} bold={level === 'crit'}>{pct(p)}</Text>
 }
 
+// " ⇥ 16:37", coloured by how long you would be locked out before the reset.
+function runOutText({ Text }: Kit, clock: Clock, runOutAt: number, resetsAt: number, windowMs: number, now: number) {
+  const level = runOutLevel(runOutAt, resetsAt, windowMs)
+  return <Text color={COLORS[level]} bold={level === 'crit'}> ⇥ {clock.when(runOutAt, now)}</Text>
+}
+
 // " (F 12%)" after the weekly figure.
 function fableText({ Box, Text }: Kit, key: string, f: QuotaLimit) {
   const level = usageLevel(f.percent)
@@ -274,9 +281,7 @@ function drawRow(kit: Kit, clock: Clock, s: QuotaSnap, now: number, columns: num
         {withBars ? bar(kit, 'bar', l.percent, level, 5) : null}
         {percentText(kit, 'pct', l.percent, level)}
         {l.kind === 'seven_day' && s.fable ? fableText(kit, 'fable', s.fable) : null}
-        {p?.runOutAt ? (
-          <Text color={COLORS[level]} bold={level === 'crit'}> ⇥ {clock.when(p.runOutAt, now)}</Text>
-        ) : null}
+        {p?.runOutAt && l.resetsAt ? runOutText(kit, clock, p.runOutAt, l.resetsAt, windowOf(l.kind), now) : null}
         {l.resetsAt ? <Text dimColor> ↻ {clock.when(l.resetsAt, now)}</Text> : null}
       </Box>,
     ]
@@ -336,11 +341,12 @@ function drawDetails(kit: Kit, clock: Clock, s: QuotaSnap, now: number, columns:
             ) : null}
           </Box>,
         ]
-        if (p?.runOutAt) {
+        if (p?.runOutAt && l.resetsAt) {
+          const runOut = runOutLevel(p.runOutAt, l.resetsAt, windowOf(l.kind))
           rows.push(
             <Box key={`f-${l.kind}`} flexDirection="row">
               {label('')}
-              <Text color={COLORS[level]} bold={level === 'crit'}>
+              <Text color={COLORS[runOut]} bold={runOut === 'crit'}>
                 ⇥ {clock.when(p.runOutAt, now)} {clock.zone(p.runOutAt)}: on pace for ~{p.projected}%, you run out before the reset
               </Text>
             </Box>,

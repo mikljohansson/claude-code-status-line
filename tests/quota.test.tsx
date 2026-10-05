@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 
-import { fableLimit, lastSegment, makeClock, modelName, pace, shortDir, usageLevel } from '../hooks/format'
+import { fableLimit, lastSegment, makeClock, modelName, pace, runOutLevel, shortDir, usageLevel } from '../hooks/format'
 
 const H = 3_600_000
 const QUOTA = {
@@ -48,6 +48,10 @@ describe('format', () => {
     expect(modelName('claude-haiku-4-5-20251001')).toBe('Haiku 4.5')
     expect(modelName('Opus 5.5')).toBe('Opus 5.5')
     expect(usageLevel(90)).toBe('crit')
+    const h = 3_600_000
+    expect(runOutLevel(19 * h - 15 * 60_000, 19 * h, 5 * h)).toBe('warn')
+    expect(runOutLevel(16 * h, 19 * h, 5 * h)).toBe('crit')
+    expect(runOutLevel(-2 * 24 * h, 0, 7 * 24 * h)).toBe('hot')
   })
 
   test('Fable weekly row of the usage endpoint', async () => {

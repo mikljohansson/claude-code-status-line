@@ -17,7 +17,7 @@ verke │ Opus 5.5 │ ctx ▰▱▱▱▱  21% │ 5h ▰▰▱▱▱  35% ↻ 
 | `⇥ Wed 19:54` | Only shown when you are on pace to use the whole limit before it resets: the time you would run out |
 | `user@example.com` | The account you are signed in with (left out when not signed in, such as with an API key) |
 
-Colours: green under 50%, yellow from 50%, orange from 75%, bold red from 90% (context: 50 / 65 / 80%). You get one toast per window when a limit passes 90%.
+Colours: green under 50%, yellow from 50%, orange from 75%, bold red from 90% (context: 50 / 65 / 80%). The `⇥` time is coloured by how much of the window you would be locked out before the reset: yellow under 10%, orange from 10%, bold red over 30%. You get one toast per window when a limit passes 90%.
 
 Run `/quota` to show details above the prompt: the full project path, longer bars, time-zone name, time left until each reset, and the pace forecast in words. Run `/quota` again to hide them.
 
