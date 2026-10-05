@@ -62,7 +62,11 @@ describe('band', () => {
     on('session.root', () => ({ value: 'C:\\Users\\miklj\\projects\\verke' }))
     on('session.model', () => ({ value: 'claude-opus-5-5' }))
     on('session.measure', (_, e) => ({ changed: e.changed }))
+    on('prompt.context', () => ({
+      blocks: [{ name: 'userEmail', text: "The user's email address is user@example.com. Use it only to identify the user." }],
+    }))
     on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200_000 }, rateLimits: [] } }))
+    await $.prompt.context({ blocks: [] })
     await $.session.measure({
       context: { tokens: 128_000, window: 200_000, percent: 64 },
       rateLimits: [
@@ -88,6 +92,7 @@ describe('band', () => {
       })
       expect(await hint.find({ type: 'Text', text: 'verke' })).toBeDefined()
       expect(await hint.find({ type: 'Text', text: /64%/ })).toBeDefined()
+      expect(await hint.find({ type: 'Text', text: 'user@example.com' })).toBeDefined()
       expect(await hint.find({ type: 'Text', text: 'engine' })).toBeDefined()
       await hint.unmount()
 

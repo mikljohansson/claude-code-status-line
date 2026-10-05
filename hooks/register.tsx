@@ -31,11 +31,13 @@ import {
 const snap = atom({ plugin: 'status-line', key: 'snap' } as const, null)
 const isExpanded = atom({ plugin: 'status-line', key: 'isExpanded' } as const, false)
 const clockNow = atom({ plugin: 'status-line', key: 'now' } as const, 0)
+const userEmail = atom({ plugin: 'status-line', key: 'user' } as const, null)
 
 const LABELS: Record<string, string> = { five_hour: '5h', seven_day: 'wk' }
 const LONG_LABELS: Record<string, string> = { five_hour: '5h', seven_day: 'weekly' }
 const NARROW_BELOW = 90
 const WARNED_KEY = 'warned'
+const EMAIL = /[^\s@]+@[^\s@]+\.[a-z]{2,}/i
 
 type Options = { timeZone?: string; weekdays?: 'en' | 'de' }
 
@@ -64,11 +66,11 @@ async function refresh($: EngineInterface, clock: Clock, measured?: { context: S
   // The band covers terminal and desktop; a pinned status line there would only repeat it as a notice.
   const surfaces = await $.session.surfaces()
   const hasBand = surfaces.some(surface => surface === 'terminal' || surface === 'desktop')
-  $.ui.status(hasBand ? undefined : statusText(clock, next, now))
+  $.ui.status(hasBand ? undefined : statusText(clock, next, now, await read($, userEmail)))
   await warnPast90($, clock, limits)
 }
 
-function statusText(clock: Clock, s: QuotaSnap, now: number): string {
+function statusText(clock: Clock, s: QuotaSnap, now: number, user: string | null): string {
   const parts = [s.dir, s.model]
   if (s.context) parts.push(`ctx ${Math.round(s.context.percent)}%`)
   for (const l of s.limits) {
@@ -80,7 +82,27 @@ function statusText(clock: Clock, s: QuotaSnap, now: number): string {
     }
     parts.push(text)
   }
+  if (user) parts.push(user)
   return parts.join(' │ ')
+}
+
+// The prompt.context block arrives only with the first prompt; until then, the
+// account Claude Code keeps in its global config (no tokens live in that file).
+async function readAccountEmail($: EngineInterface): Promise<string | null> {
+  const [configDir, profile, home] = await Promise.all([
+    $.env.get('CLAUDE_CONFIG_DIR'),
+    $.env.get('USERPROFILE'),
+    $.env.get('HOME'),
+  ])
+  const dir = configDir ?? profile ?? home
+  if (!dir) return null
+  try {
+    const config = JSON.parse(await $.fs.read(`${dir}/.claude.json`))
+    const email = config?.oauthAccount?.emailAddress
+    return typeof email === 'string' && email ? email : null
+  } catch {
+    return null
+  }
 }
 
 // One toast per window per reset, remembered across sessions.
@@ -102,9 +124,22 @@ export const register: Register = (on, options) => {
   const opts = (options ?? {}) as Options
   const clock: Clock = makeClock(opts.timeZone?.trim() || undefined, opts.weekdays === 'de' ? 'de' : 'en')
 
+  // The signed-in account's email, read from the context block the engine gives the model.
+  on('prompt.context', async ($, e, next) => {
+    const result = await next(e)
+    const block = result.blocks.find(b => b.name === 'userEmail')
+    const email = block ? (EMAIL.exec(block.text)?.[0] ?? null) : null
+    await update($, userEmail, () => email)
+    return result
+  })
+
   on('session.start', async ($, e, next) => {
     const result = await next(e)
     await $.command.register({ name: 'quota', description: 'Show or hide usage details above the prompt.' })
+    if (!(await read($, userEmail))) {
+      const email = await readAccountEmail($)
+      if (email) await update($, userEmail, () => email)
+    }
     await refresh($, clock)
     $.clock.every(30_000, () => refresh($, clock))
     return result
@@ -127,11 +162,12 @@ export const register: Register = (on, options) => {
     const s = await read($, snap)
     if (!s) return engineLine
     const now = (await read($, clockNow)) || (await $.clock.now())
+    const user = await read($, userEmail)
     const columns = e.viewport?.columns ?? 120
     const { Box, Text } = $.ui.resolve(e)
     return (
       <Box flexDirection="column">
-        {drawRow({ Box, Text }, clock, s, now, columns)}
+        {drawRow({ Box, Text }, clock, s, now, columns, user)}
         {engineLine}
       </Box>
     )
@@ -181,9 +217,9 @@ function percentText({ Text }: Kit, key: string, p: number, level: Level) {
   return <Text key={key} color={COLORS[level]} bold={level === 'crit'}>{pct(p)}</Text>
 }
 
-// "verke │ Opus 5.5 │ ctx ▰▰▱▱▱▱▱▱  23% │ 5h ▰▰▱▱▱  31% ↻ 14:20 / wk ▰▰▰▱▱  50% ⇥ Wed 21:48 ↻ Sat 01:00"
+// "verke │ Opus 5.5 │ ctx ▰▰▱▱▱▱▱▱  23% │ 5h ▰▰▱▱▱  31% ↻ 14:20 / wk ▰▰▰▱▱  50% ⇥ Wed 21:48 ↻ Sat 01:00 │ user@example.com"
 // Under NARROW_BELOW columns the bars drop out.
-function drawRow(kit: Kit, clock: Clock, s: QuotaSnap, now: number, columns: number) {
+function drawRow(kit: Kit, clock: Clock, s: QuotaSnap, now: number, columns: number, user: string | null) {
   const { Box, Text } = kit
   const withBars = columns >= NARROW_BELOW
   const sep = (key: string, glyph = ' │ ') => <Text key={key} dimColor>{glyph}</Text>
@@ -216,6 +252,8 @@ function drawRow(kit: Kit, clock: Clock, s: QuotaSnap, now: number, columns: num
       {ctx ? percentText(kit, 'ctxp', ctx.percent, ctxLevel) : null}
       {s.limits.length > 0 ? sep('s3') : null}
       {limits}
+      {user ? sep('s4') : null}
+      {user ? <Text dimColor>{user}</Text> : null}
     </Box>
   )
 }

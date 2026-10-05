@@ -3,7 +3,7 @@
 A Claude Code mod that shows one line under the prompt:
 
 ```
-verke │ Opus 5.5 │ ctx ▰▰▱▱▱▱▱▱  21% │ 5h ▰▰▱▱▱  35% ↻ 14:20 / wk ▰▰▰▱▱  51% ⇥ Wed 19:54 ↻ Sat 01:00
+verke │ Opus 5.5 │ ctx ▰▰▱▱▱▱▱▱  21% │ 5h ▰▰▱▱▱  35% ↻ 14:20 / wk ▰▰▰▱▱  51% ⇥ Wed 19:54 ↻ Sat 01:00 │ user@example.com
 ```
 
 | Segment | Meaning |
@@ -14,6 +14,7 @@ verke │ Opus 5.5 │ ctx ▰▰▱▱▱▱▱▱  21% │ 5h ▰▰▱▱▱ 
 | `5h` / `wk` | How much of your 5-hour and weekly limits you have used |
 | `↻ 14:20` | When that limit resets, in your local time zone, 24h clock. A weekday is added when the reset is on another day |
 | `⇥ Wed 19:54` | Only shown when you are on pace to use the whole limit before it resets: the time you would run out |
+| `user@example.com` | The account you are signed in with (left out when not signed in, such as with an API key) |
 
 Colours: green under 50%, yellow from 50%, orange from 75%, bold red from 90% (context: 50 / 65 / 80%). You get one toast per window when a limit passes 90%.
 
